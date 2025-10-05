@@ -1,0 +1,9 @@
+go 1.25
+
+use (
+	.
+	adapter/slog
+	adapter/zap
+	adapter/zerolog
+	examples
+)
