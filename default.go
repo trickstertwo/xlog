@@ -45,3 +45,17 @@ func New() *Logger {
 	SetGlobal(l)
 	return l
 }
+
+// UseAdapter sets the given adapter as the global logger with the provided min level.
+// It builds the logger, sets it as global, and returns it. Single line, explicit, no envs.
+func UseAdapter(a Adapter, min Level, observers ...Observer) *Logger {
+	l, _ := NewBuilder().
+		WithAdapter(a).
+		WithMinLevel(min).
+		Build()
+	for _, o := range observers {
+		l.AddObserver(o)
+	}
+	SetGlobal(l)
+	return l
+}

@@ -2,13 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
-	_ "github.com/trickstertwo/xlog/adapter/zerolog" // register zerolog as xlog's default
+	"github.com/trickstertwo/xlog/adapter/zerolog"
 )
 
 func main() {
@@ -17,26 +15,16 @@ func main() {
 	defer xclock.SetDefault(old)
 	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
 
-	// 1) JSON output, no caller
-	fmt.Println("\n=== JSON (no caller) ===")
-	_ = os.Setenv("XLOG_MIN_LEVEL", "debug")
-	_ = os.Unsetenv("XLOG_CONSOLE")
-	_ = os.Unsetenv("XLOG_CALLER")
-	xlog.New()
-	runAllExamples()
+	// Single explicit call, no envs, no blank-imports. Clear and predictable.
+	zerolog.Use(zerolog.Config{
+		MinLevel:          xlog.LevelDebug,  // xlog + zerolog both get this
+		Console:           false,            // set to true for pretty console
+		ConsoleTimeFormat: time.RFC3339Nano, // used when Console = true
+		Caller:            true,             // include caller if you want it
+		CallerSkip:        5,                // adjust to point at app callsite
+		// Writer:          os.Stdout,        // optional, defaults to Stdout
+	})
 
-	// 2) JSON output, with caller (adjust skip if needed)
-	fmt.Println("\n=== JSON (with caller) ===")
-	_ = os.Setenv("XLOG_CALLER", "1")
-	_ = os.Setenv("XLOG_CALLER_SKIP", "5")
-	xlog.New()
-	runAllExamples()
-
-	// 3) Console (pretty) output, with caller and custom time format
-	fmt.Println("\n=== CONSOLE (pretty, with caller) ===")
-	_ = os.Setenv("XLOG_CONSOLE", "1")
-	_ = os.Setenv("XLOG_CONSOLE_TIMEFORMAT", time.RFC3339Nano)
-	xlog.New()
 	runAllExamples()
 }
 
@@ -48,7 +36,7 @@ func runAllExamples() {
 		Dur("boot", 125*time.Millisecond).
 		Msg("listening")
 
-	// Child logger with bound fields (best practice for request-scoped logging)
+	// Child logger with bound fields
 	reqLog := xlog.L().With(
 		xlog.FStr("request_id", "req-123"),
 		xlog.FStr("region", "eu-west-1"),

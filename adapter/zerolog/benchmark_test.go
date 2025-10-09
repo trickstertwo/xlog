@@ -1,4 +1,4 @@
-package zerologadapter
+package zerolog
 
 import (
 	"io"
