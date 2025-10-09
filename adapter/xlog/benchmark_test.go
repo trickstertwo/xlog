@@ -1,4 +1,4 @@
-package xlogadapter
+package xlog
 
 import (
 	"io"

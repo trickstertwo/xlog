@@ -1,4 +1,4 @@
-package slogadapter
+package slog
 
 import (
 	"context"
@@ -10,50 +10,109 @@ import (
 	"github.com/trickstertwo/xlog"
 )
 
-// SlogAdapter adapts xlog to the Go slog API (Adapter Strategy).
-// It builds slog.Attrs directly for low overhead and uses LogAttrs.
-type SlogAdapter struct {
+// Adapter bridges xlog to the Go slog API with low overhead.
+//
+// Optimizations:
+//   - Pre-binds fields in With() by creating a child slog.Logger with those
+//     attributes attached, eliminating per-log bound-field loops.
+//   - Uses Logger.Enabled to avoid building attrs when level is disabled.
+//   - Writes RFC3339Nano timestamp under a configurable key (default "ts") as a string
+//     for deterministic precision across handlers and encoders.
+//
+// Optional behavior:
+//   - SetMinLevel leverages slog.LevelVar when provided at construction time
+//     to adjust backend filtering to match xlog's MinLevel. If no LevelVar is
+//     provided, SetMinLevel is a no-op (xlog filtering still applies).
+type Adapter struct {
 	l     *slog.Logger
-	bound []xlog.Field
+	lv    *slog.LevelVar // optional, enables SetMinLevel
+	tsKey string         // timestamp field key; default "ts"
 }
 
-func toSlog(l xlog.Level) slog.Level {
-	return slog.Level(l)
-}
+var bg = context.Background()
 
-func New(l *slog.Logger) *SlogAdapter {
+func toSlog(l xlog.Level) slog.Level { return slog.Level(l) }
+
+// New creates an adapter for the provided slog logger.
+func New(l *slog.Logger) *Adapter {
 	if l == nil {
 		l = slog.Default()
 	}
-	return &SlogAdapter{l: l}
+	return &Adapter{l: l, tsKey: "ts"}
 }
 
-func (a *SlogAdapter) With(fs []xlog.Field) xlog.Adapter {
+// NewWithLevelVar creates an adapter that can dynamically adjust slog level via SetMinLevel.
+func NewWithLevelVar(l *slog.Logger, lv *slog.LevelVar) *Adapter {
+	if l == nil {
+		l = slog.Default()
+	}
+	return &Adapter{l: l, lv: lv, tsKey: "ts"}
+}
+
+// NewWithTimestampKey lets callers override the timestamp field key (default "ts").
+func NewWithTimestampKey(l *slog.Logger, lv *slog.LevelVar, tsKey string) *Adapter {
+	if l == nil {
+		l = slog.Default()
+	}
+	if tsKey == "" {
+		tsKey = "ts"
+	}
+	return &Adapter{l: l, lv: lv, tsKey: tsKey}
+}
+
+// With returns a child adapter by binding fields onto a child slog.Logger.
+// This applies the cost once, not per-log call.
+func (a *Adapter) With(fs []xlog.Field) xlog.Adapter {
+	if len(fs) == 0 {
+		child := *a
+		return &child
+	}
+	attrs := make([]slog.Attr, 0, len(fs))
+	for i := range fs {
+		attrs = append(attrs, toAttr(&fs[i]))
+	}
+	// slog.Logger.With expects ...any; convert []slog.Attr -> []any
+	args := make([]any, len(attrs))
+	for i := range attrs {
+		args[i] = attrs[i]
+	}
 	child := *a
-	child.bound = append(copyFields(nil, a.bound), fs...)
+	child.l = a.l.With(args...)
 	return &child
 }
 
-func (a *SlogAdapter) Log(level xlog.Level, msg string, at time.Time, fields []xlog.Field) {
-	attrs := make([]slog.Attr, 0, len(a.bound)+len(fields)+1)
-
-	// Single authoritative timestamp provided by Logger
-	attrs = append(attrs, slog.Time("ts", at))
-
-	// bound fields
-	for i := range a.bound {
-		attrs = append(attrs, toAttr(a.bound[i]))
+// Log emits a single entry.
+// - Uses xlog's authoritative timestamp as tsKey with RFC3339Nano precision.
+// - Leverages slog.Enabled to skip work when a level is disabled.
+func (a *Adapter) Log(level xlog.Level, msg string, at time.Time, fields []xlog.Field) {
+	sl := toSlog(level)
+	if !a.l.Enabled(bg, sl) {
+		return
 	}
-	// event fields
+
+	// Pre-size for ts + event fields (bound fields are baked into the logger).
+	attrs := make([]slog.Attr, 0, 1+len(fields))
+
+	// Deterministic timestamp precision across handlers/encoders.
+	attrs = append(attrs, slog.String(a.tsKey, at.UTC().Format(time.RFC3339Nano)))
+
 	for i := range fields {
-		attrs = append(attrs, toAttr(fields[i]))
+		attrs = append(attrs, toAttr(&fields[i]))
 	}
 
-	// Use LogAttrs for minimal allocations
-	a.l.LogAttrs(context.Background(), toSlog(level), msg, attrs...)
+	a.l.LogAttrs(bg, sl, msg, attrs...)
 }
 
-func toAttr(f xlog.Field) slog.Attr {
+// SetMinLevel updates the backend filter when a LevelVar was supplied.
+// If not provided, this is a no-op (xlog filtering still applies).
+func (a *Adapter) SetMinLevel(l xlog.Level) {
+	if a.lv == nil {
+		return
+	}
+	a.lv.Set(toSlog(l))
+}
+
+func toAttr(f *xlog.Field) slog.Attr {
 	switch f.Kind {
 	case xlog.KindString:
 		return slog.String(f.K, f.Str)
@@ -80,14 +139,8 @@ func toAttr(f xlog.Field) slog.Attr {
 	}
 }
 
-func copyFields(dst, src []xlog.Field) []xlog.Field {
-	if len(src) == 0 {
-		return dst
-	}
-	return append(dst, src...)
-}
-
 // NewJSONLogger builds an xlog.Logger wired to a slog JSON handler.
+// It uses a LevelVar so Adapter.SetMinLevel can adjust the backend level.
 func NewJSONLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, observers ...xlog.Observer) (*xlog.Logger, error) {
 	if w == nil {
 		w = os.Stdout
@@ -95,10 +148,13 @@ func NewJSONLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, 
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
-	opts.Level = slog.Level(minLevel)
+	var lv slog.LevelVar
+	lv.Set(toSlog(minLevel))
+	opts.Level = &lv
+
 	handler := slog.NewJSONHandler(w, opts)
 	sl := slog.New(handler)
-	adapter := New(sl)
+	adapter := NewWithLevelVar(sl, &lv)
 
 	b := xlog.NewBuilder().
 		WithAdapter(adapter).
@@ -110,6 +166,7 @@ func NewJSONLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, 
 }
 
 // NewTextLogger builds an xlog.Logger wired to a slog text handler.
+// It uses a LevelVar so Adapter.SetMinLevel can adjust the backend level.
 func NewTextLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, observers ...xlog.Observer) (*xlog.Logger, error) {
 	if w == nil {
 		w = os.Stdout
@@ -117,10 +174,13 @@ func NewTextLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, 
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
-	opts.Level = slog.Level(minLevel)
+	var lv slog.LevelVar
+	lv.Set(toSlog(minLevel))
+	opts.Level = &lv
+
 	handler := slog.NewTextHandler(w, opts)
 	sl := slog.New(handler)
-	adapter := New(sl)
+	adapter := NewWithLevelVar(sl, &lv)
 
 	b := xlog.NewBuilder().
 		WithAdapter(adapter).
@@ -130,6 +190,3 @@ func NewTextLogger(w io.Writer, minLevel xlog.Level, opts *slog.HandlerOptions, 
 	}
 	return b.Build()
 }
-
-// Ensure we refer to time to avoid unused import in some build contexts.
-var _ = time.Duration(0)

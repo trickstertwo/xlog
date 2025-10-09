@@ -3,7 +3,6 @@ package xlog
 import (
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/trickstertwo/xclock"
 )
@@ -13,8 +12,10 @@ type Logger struct {
 	minLevel   Level
 	baseFields []Field
 
-	observersMu sync.RWMutex
-	observers   []Observer
+	// Observers: lock-free reads via atomic.Value; synchronized updates via obsMu.
+	// Stored value is []Observer and MUST be treated as immutable by readers.
+	observers atomic.Value // holds []Observer
+	obsMu     sync.Mutex
 }
 
 // Factory: internal constructor.
@@ -24,7 +25,11 @@ func newLogger(cfg Config) *Logger {
 		minLevel: cfg.MinLevel,
 	}
 	if len(cfg.Observers) > 0 {
-		l.observers = append(l.observers, cfg.Observers...)
+		obs := make([]Observer, len(cfg.Observers))
+		copy(obs, cfg.Observers)
+		l.observers.Store(obs)
+	} else {
+		l.observers.Store(([]Observer)(nil))
 	}
 	return l
 }
@@ -44,6 +49,12 @@ func L() *Logger {
 	return l
 }
 
+// Enabled reports whether logs at 'level' would be emitted by this logger.
+// Use to avoid building fields in hot paths when disabled.
+func (l *Logger) Enabled(level Level) bool {
+	return level >= l.minLevel
+}
+
 // Level entry points returning fluent builders.
 
 func (l *Logger) Trace() *Event { return getEvent(l, LevelTrace) }
@@ -55,29 +66,36 @@ func (l *Logger) Fatal() *Event { return getEvent(l, LevelFatal) }
 
 // With returns a child logger with bound fields.
 func (l *Logger) With(fs ...Field) *Logger {
-	return &Logger{
+	child := &Logger{
 		adapter:    l.adapter.With(fs),
 		minLevel:   l.minLevel,
 		baseFields: append(copyFields(nil, l.baseFields), fs...),
-		observers:  l.copyObservers(),
 	}
+	// Inherit a snapshot of observers (same semantics as before).
+	child.observers.Store(l.snapshotObservers())
+	return child
 }
 
-func (l *Logger) copyObservers() []Observer {
-	l.observersMu.RLock()
-	defer l.observersMu.RUnlock()
-	if len(l.observers) == 0 {
+func (l *Logger) snapshotObservers() []Observer {
+	v := l.observers.Load()
+	if v == nil {
 		return nil
 	}
-	out := make([]Observer, len(l.observers))
-	copy(out, l.observers)
+	cur := v.([]Observer)
+	if len(cur) == 0 {
+		return nil
+	}
+	out := make([]Observer, len(cur))
+	copy(out, cur)
 	return out
 }
 
 func (l *Logger) AddObserver(o Observer) {
-	l.observersMu.Lock()
-	l.observers = append(l.observers, o)
-	l.observersMu.Unlock()
+	l.obsMu.Lock()
+	defer l.obsMu.Unlock()
+	cur := l.snapshotObservers()
+	cur = append(cur, o)
+	l.observers.Store(cur)
 }
 
 func (l *Logger) emit(level Level, msg string, evFields []Field) {
@@ -91,27 +109,32 @@ func (l *Logger) emit(level Level, msg string, evFields []Field) {
 	l.adapter.Log(level, msg, at, evFields)
 
 	// Observers see combined fields: base + event.
-	if len(l.observers) > 0 {
-		merged := make([]Field, 0, len(l.baseFields)+len(evFields))
-		if len(l.baseFields) > 0 {
-			merged = append(merged, l.baseFields...)
-		}
-		if len(evFields) > 0 {
-			merged = append(merged, evFields...)
-		}
-		entry := Entry{
-			At:      at,
-			Level:   level,
-			Message: msg,
-			Fields:  merged,
-		}
-		l.observersMu.RLock()
-		obs := make([]Observer, len(l.observers))
-		copy(obs, l.observers)
-		l.observersMu.RUnlock()
-		for _, o := range obs {
-			o.OnLog(entry)
-		}
+	v := l.observers.Load()
+	if v == nil {
+		return
+	}
+	obs := v.([]Observer)
+	if len(obs) == 0 {
+		return
+	}
+
+	merged := make([]Field, 0, len(l.baseFields)+len(evFields))
+	if len(l.baseFields) > 0 {
+		merged = append(merged, l.baseFields...)
+	}
+	if len(evFields) > 0 {
+		merged = append(merged, evFields...)
+	}
+
+	entry := Entry{
+		At:      at,
+		Level:   level,
+		Message: msg,
+		Fields:  merged,
+	}
+
+	for _, o := range obs {
+		o.OnLog(entry)
 	}
 }
 
@@ -121,6 +144,3 @@ func copyFields(dst, src []Field) []Field {
 	}
 	return append(dst, src...)
 }
-
-// Ensure time referenced; documents that adapters receive 'at'.
-var _ time.Time

@@ -52,8 +52,10 @@ func (a *Adapter) Log(level xlog.Level, msg string, at time.Time, fields []xlog.
 	}
 
 	ev := a.l.WithLevel(zlvl)
-	// "ts" from xlog clock for cross-adapter consistency
-	ev.Time("ts", at)
+
+	// Ensure RFC3339Nano precision regardless of zerolog.TimeFieldFormat defaults.
+	// Using a string avoids global config changes and keeps output deterministic.
+	ev.Str("ts", at.UTC().Format(time.RFC3339Nano))
 
 	// Apply event fields
 	for i := range fields {

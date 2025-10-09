@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-
 	"github.com/trickstertwo/xlog"
 )
 
@@ -62,9 +61,13 @@ func TestZerologAdapter_JSON_EmitsTSAndFields(t *testing.T) {
 	if m["ok"] != true {
 		t.Fatalf("ok mismatch: %v", m["ok"])
 	}
-	if m["dur"] != "1ms" {
-		t.Fatalf("dur mismatch: %v", m["dur"])
+
+	// zerolog encodes durations as numeric values scaled by zerolog.DurationFieldUnit (default ms).
+	// 1ms -> 1 (float64) by default.
+	if m["dur"] != float64(1) {
+		t.Fatalf("dur mismatch: %v (want 1 as float64 for 1ms)", m["dur"])
 	}
+
 	if m["error"] != "boom" {
 		t.Fatalf("error mismatch: %v", m["error"])
 	}

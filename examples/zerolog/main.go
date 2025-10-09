@@ -25,10 +25,10 @@ func main() {
 		// Writer:          os.Stdout,        // optional, defaults to Stdout
 	})
 
-	runAllExamples()
+	run()
 }
 
-func runAllExamples() {
+func run() {
 	// Basic Info with a few fields
 	xlog.Info().
 		Str("service", "payments").

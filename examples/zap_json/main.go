@@ -1,61 +1,69 @@
 package main
 
 import (
-	"os"
+	"errors"
 	"time"
 
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
-	zapadapter "github.com/trickstertwo/xlog/adapter/zap"
+	"github.com/trickstertwo/xlog/adapter/zap"
 )
 
 func main() {
-	// Optional: pin a deterministic clock for demo
+	// Deterministic time for demo output.
 	old := xclock.Default()
 	defer xclock.SetDefault(old)
 	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
 
-	// Configure a JSON zap logger that writes to stdout.
-	encCfg := zapcore.EncoderConfig{
-		TimeKey:        "", // we inject our own "ts"
-		LevelKey:       "level",
-		MessageKey:     "message",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.RFC3339NanoTimeEncoder,
-		EncodeDuration: zapcore.StringDurationEncoder,
-	}
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encCfg),
-		zapcore.AddSync(os.Stdout),
-		zapcore.DebugLevel, // allow debug through zap
-	)
-	zl := zap.New(core)
+	// Single explicit call, no envs, no blank-imports. Clear and predictable.
+	zap.Use(zap.Config{
+		MinLevel: xlog.LevelDebug, // xlog + zap both get this
+		Console:  false,           // set to true for console encoder
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "", // xlog injects "ts"
+			LevelKey:       "level",
+			MessageKey:     "message",
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.RFC3339NanoTimeEncoder, // for any zap.Time you add yourself
+			EncodeDuration: zapcore.StringDurationEncoder,
+			CallerKey:      "caller",
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+		Caller:     true,
+		CallerSkip: 3, // adjust to land on your app callsite
+		// Writer defaults to os.Stdout
+	})
 
-	// Wrap with xlog's zap adapter and set global logger.
-	adapter := zapadapter.New(zl)
-	logger, err := xlog.NewBuilder().
-		WithAdapter(adapter).
-		WithMinLevel(xlog.LevelDebug). // allow debug through xlog
-		Build()
-	if err != nil {
-		panic(err)
-	}
-	xlog.SetGlobal(logger)
-
-	// Zerolog-style fluent API (INFO)
+	// Basic Info with a few fields
 	xlog.Info().
 		Str("service", "payments").
 		Int("port", 8080).
 		Dur("boot", 125*time.Millisecond).
 		Msg("listening")
 
-	// Child logger with bound fields (DEBUG)
+	// Child logger with bound fields (best practice for request-scoped logging)
 	reqLog := xlog.L().With(
-		xlog.Field{K: "request_id", Kind: xlog.KindString, Str: "req-123"},
-		xlog.Field{K: "region", Kind: xlog.KindString, Str: "eu-west-1"},
+		xlog.FStr("request_id", "req-123"),
+		xlog.FStr("region", "eu-west-1"),
 	)
 	reqLog.Debug().Str("path", "/healthz").Int("code", 200).Msg("probe")
+
+	// Demonstrate all field kinds
+	xlog.L().With(
+		xlog.FStr("k_string", "v"),
+		xlog.FInt("k_int64", -42),
+		xlog.FUint("k_uint64", 42),
+		xlog.FFloat("k_float64", 3.14159),
+		xlog.FBool("k_bool", true),
+		xlog.FDur("k_duration", 250*time.Millisecond),
+		xlog.FTime("k_time", time.Date(2025, 1, 1, 7, 0, 0, 0, time.UTC)),
+		xlog.FErr("k_error", errors.New("boom")),
+		xlog.FBytes("k_bytes", []byte{0xDE, 0xAD, 0xBE, 0xEF}),
+		xlog.FAny("k_any", map[string]any{"a": 1, "b": "two"}),
+	).Warn().Msg("all-kinds")
+
+	// Show Fatal semantic (logged as error; does NOT exit)
+	xlog.Fatal().Msg("fatal is logged as error (no os.Exit)")
 }

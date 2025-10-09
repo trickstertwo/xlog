@@ -1,12 +1,11 @@
 package main
 
 import (
-	"os"
 	"time"
 
 	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
-	_ "github.com/trickstertwo/xlog/adapter/zerolog"
+	xadapter "github.com/trickstertwo/xlog/adapter/xlog"
 )
 
 func main() {
@@ -15,11 +14,15 @@ func main() {
 	defer xclock.SetDefault(old)
 	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
 
-	// Ensure DEBUG logs are emitted by both xlog and zerolog.
-	_ = os.Setenv("XLOG_MIN_LEVEL", "debug")
-
-	// Build and set the global logger using the default adapter (zerolog via init()).
-	xlog.New().With(xlog.FStr("app", "xbus-example"))
+	// Single explicit call, no envs, no blank-imports. Clear and predictable.
+	// Choose between FormatText and FormatJSON.
+	xadapter.Use(xadapter.Config{
+		MinLevel: xlog.LevelDebug,     // xlog + adapter filters aligned
+		Format:   xadapter.FormatJSON, // or xadapter.FormatJSON
+		// Async:  true, AsyncQueueSize: 2048, // optional async mode
+		// Writer: os.Stdout,                 // optional (defaults to Stdout)
+		// TimeFormat: time.RFC3339Nano,      // currently reserved; default RFC3339Nano
+	})
 
 	// Two log lines: INFO and DEBUG
 	xlog.Info().

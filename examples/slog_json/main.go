@@ -2,34 +2,30 @@ package main
 
 import (
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
-	"github.com/trickstertwo/xlog/adapter/slog"
+	xslog "github.com/trickstertwo/xlog/adapter/slog"
 )
 
 func main() {
-	// Pin deterministic time for demo output
+	// Deterministic time for demo output.
 	old := xclock.Default()
 	defer xclock.SetDefault(old)
 	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
 
-	// Configure slog JSON handler with Debug level
-	h := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
-	sl := slog.New(h)
-
-	// Wire xlog -> slog adapter
-	adapter := slogadapter.New(sl)
-	logger, err := xlog.NewBuilder().
-		WithAdapter(adapter).
-		WithMinLevel(xlog.LevelDebug).
-		Build()
-	if err != nil {
-		panic(err)
-	}
-	xlog.SetGlobal(logger)
+	// Single explicit call, no envs, no blank-imports.
+	// Uses slog JSON handler at Debug level; AddSource shows caller.
+	xslog.Use(xslog.Config{
+		MinLevel: xlog.LevelDebug,
+		Format:   xslog.FormatJSON, // or slogadapter.FormatText
+		HandlerOptions: &slog.HandlerOptions{
+			Level:     slog.LevelDebug, // backend level (will also be synced via SetMinLevel)
+			AddSource: true,            // optional: include caller
+		},
+		// TimestampFieldName: "ts", // default; override if you prefer a different key
+	})
 
 	// Two log lines: INFO and DEBUG
 	xlog.Info().
@@ -39,8 +35,8 @@ func main() {
 		Msg("listening")
 
 	reqLog := xlog.L().With(
-		xlog.Field{K: "request_id", Kind: xlog.KindString, Str: "req-123"},
-		xlog.Field{K: "region", Kind: xlog.KindString, Str: "eu-west-1"},
+		xlog.FStr("request_id", "req-123"),
+		xlog.FStr("region", "eu-west-1"),
 	)
 	reqLog.Debug().Str("path", "/healthz").Int("code", 200).Msg("probe")
 }

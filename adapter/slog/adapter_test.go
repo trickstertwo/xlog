@@ -1,4 +1,4 @@
-package slogadapter
+package slog
 
 import (
 	"bytes"

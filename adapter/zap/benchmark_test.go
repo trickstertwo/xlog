@@ -1,4 +1,4 @@
-package zapadapter
+package zap
 
 import (
 	"io"
