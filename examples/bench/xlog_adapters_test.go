@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/trickstertwo/xlog"
-	xlogadapter "github.com/trickstertwo/xlog/adapter/olog"
 	slogadapter "github.com/trickstertwo/xlog/adapter/slog"
 	zapadapter "github.com/trickstertwo/xlog/adapter/zap"
 	zerologadapter "github.com/trickstertwo/xlog/adapter/zerolog"
@@ -45,18 +44,6 @@ var (
 // adapters returns a fresh slice to avoid accidental mutation across sub-benchmarks.
 func adapters() []scenario {
 	return []scenario{
-		{
-			name: "xlogadapter/JSON",
-			newA: func() xlog.Adapter {
-				return xlogadapter.New(io.Discard, xlogadapter.Options{Format: xlogadapter.FormatJSON})
-			},
-		},
-		{
-			name: "xlogadapter/Text",
-			newA: func() xlog.Adapter {
-				return xlogadapter.New(io.Discard, xlogadapter.Options{Format: xlogadapter.FormatText})
-			},
-		},
 		{
 			name: "zerolog/JSON",
 			newA: func() xlog.Adapter {

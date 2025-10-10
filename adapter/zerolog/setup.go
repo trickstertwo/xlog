@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
 )
 
@@ -21,8 +22,9 @@ type Config struct {
 	TimestampFieldName string // default "ts" (aligns with xlog's authoritative timestamp)
 }
 
-// Use builds a zerolog-backed xlog logger from Config,
-// wires it as the global xlog logger, and returns it.
+// Use builds a zerolog-backed xlog logger from Config, wires it as the global
+// xlog logger, and returns it. Critically, it binds the logger to xclock.Default()
+// so frozen/offset/jitter/calibrated clocks are respected in timestamps.
 func Use(cfg Config) *xlog.Logger {
 	w := cfg.Writer
 	if w == nil {
@@ -38,7 +40,7 @@ func Use(cfg Config) *xlog.Logger {
 	// Build zerolog.Logger according to Config
 	var zl zerolog.Logger
 	if cfg.Console {
-		// Align console’s leading timestamp column with our authoritative "ts"
+		// Align console’s leading timestamp column with our authoritative ts key
 		zerolog.TimestampFieldName = cfg.TimestampFieldName
 		cw := zerolog.ConsoleWriter{Out: w}
 		if cfg.ConsoleTimeFormat == "" {
@@ -60,86 +62,26 @@ func Use(cfg Config) *xlog.Logger {
 		zl = zl.With().Caller().Logger()
 	}
 
-	// Wrap in adapter and use as global xlog logger
+	// Wrap in adapter
 	ad := New(zl)
 	// Propagate min level down to zerolog (optional interface)
 	ad.SetMinLevel(cfg.MinLevel)
 
-	return xlog.UseAdapter(ad, cfg.MinLevel)
-}
-
-// Optional: env-friendly entrypoint if you still want it (explicitly opted-in).
-// Keep env usage out of main by default to reduce hidden magic.
-type EnvKeys struct {
-	MinLevelEnv          string // e.g. "XLOG_MIN_LEVEL" or "XLOG_LEVEL"
-	ConsoleEnv           string // e.g. "XLOG_CONSOLE"
-	CallerEnv            string // e.g. "XLOG_CALLER"
-	CallerSkipEnv        string // e.g. "XLOG_CALLER_SKIP"
-	ConsoleTimeFormatEnv string // e.g. "XLOG_CONSOLE_TIMEFORMAT"
-}
-
-// UseFromEnv is a convenience wrapper for teams that still prefer env wiring.
-// Not used by the single-call example unless you explicitly opt in.
-func UseFromEnv(keys EnvKeys) *xlog.Logger {
-	// Lightweight parsers; defaults chosen to be safe.
-	lvl := parseMinLevel(getEnvFirst(keys.MinLevelEnv, "info"))
-	console := os.Getenv(keys.ConsoleEnv) == "1"
-	caller := os.Getenv(keys.CallerEnv) == "1"
-	callerSkip := parseInt(os.Getenv(keys.CallerSkipEnv), 5)
-	tf := os.Getenv(keys.ConsoleTimeFormatEnv)
-
-	return Use(Config{
-		Writer:            os.Stdout,
-		MinLevel:          lvl,
-		Console:           console,
-		ConsoleTimeFormat: tf,
-		Caller:            caller,
-		CallerSkip:        callerSkip,
-	})
-}
-
-func getEnvFirst(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+	// Build an xlog.Logger bound to the current process clock (xclock.Default()).
+	logger, err := xlog.NewBuilder().
+		WithAdapter(ad).
+		WithMinLevel(cfg.MinLevel).
+		WithClock(xclock.Default()).
+		Build()
+	if err != nil {
+		// In practice, Build only fails with a nil adapter which cannot happen here.
+		// Keep panic to surface programming errors early.
+		panic(err)
 	}
-	return def
-}
 
-func parseMinLevel(s string) xlog.Level {
-	switch s {
-	case "trace", "TRACE", "Trace":
-		return xlog.LevelTrace
-	case "debug", "DEBUG", "Debug":
-		return xlog.LevelDebug
-	case "info", "INFO", "Info", "":
-		return xlog.LevelInfo
-	case "warn", "warning", "WARN", "Warning":
-		return xlog.LevelWarn
-	case "error", "ERROR", "Error":
-		return xlog.LevelError
-	case "fatal", "FATAL", "Fatal":
-		return xlog.LevelFatal
-	default:
-		return xlog.LevelInfo
-	}
-}
-
-func parseInt(s string, def int) int {
-	if s == "" {
-		return def
-	}
-	n := 0
-	sign := 1
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if i == 0 && c == '-' {
-			sign = -1
-			continue
-		}
-		if c < '0' || c > '9' {
-			return def
-		}
-		n = n*10 + int(c-'0')
-	}
-	return n * sign
+	// Set as global and return.
+	// If your xlog version exposes SetGlobal, prefer it.
+	// Otherwise, you may have a helper like xlog.UseAdapter which creates a new logger.
+	xlog.SetGlobal(logger)
+	return logger
 }

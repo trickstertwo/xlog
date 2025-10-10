@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/trickstertwo/xlog"
-	xlogadapter "github.com/trickstertwo/xlog/adapter/olog"
 	zapadapter "github.com/trickstertwo/xlog/adapter/zap"
 	zerologadapter "github.com/trickstertwo/xlog/adapter/zerolog"
 )
@@ -28,15 +27,6 @@ var (
 // Only test: xlog adapter (JSON), zerolog, zap.
 func htAdapters() []htScenario {
 	return []htScenario{
-		{
-			name: "xlogadapter/JSON",
-			newA: func() xlog.Adapter {
-				return xlogadapter.New(io.Discard, xlogadapter.Options{
-					Format:   xlogadapter.FormatJSON,
-					MinLevel: xlog.LevelDebug,
-				})
-			},
-		},
 		{
 			name: "zerolog/JSON",
 			newA: func() xlog.Adapter {

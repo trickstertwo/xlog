@@ -12,7 +12,7 @@ import (
 // Patterns: Facade, Strategy (Adapter), Observer, Singleton (global)
 type Logger struct {
 	ad     Adapter
-	min    atomic.Int32 // stores Level in int32
+	min    *atomic.Int32 // stores Level in int32; pointer to avoid copying atomic values
 	clock  xclock.Clock
 	obs    []Observer // immutable slice set at construction
 	closed atomic.Bool
@@ -24,7 +24,11 @@ func New(ad Adapter, min Level) *Logger {
 	if ad == nil {
 		ad = nopAdapter{}
 	}
-	l := &Logger{ad: ad, clock: xclock.System()}
+	l := &Logger{
+		ad:    ad,
+		min:   new(atomic.Int32),
+		clock: xclock.System(),
+	}
 	l.min.Store(int32(min))
 	return l
 }
@@ -36,6 +40,7 @@ func newLogger(cfg Config) *Logger {
 	}
 	l := &Logger{
 		ad:    cfg.Adapter,
+		min:   new(atomic.Int32),
 		clock: clk,
 	}
 	l.min.Store(int32(cfg.MinLevel))
@@ -64,9 +69,9 @@ func (l *Logger) SetMinLevel(min Level) {
 func (l *Logger) With(fs ...Field) *Logger {
 	return &Logger{
 		ad:    l.ad.With(fs),
-		min:   l.min,
-		clock: l.clock,
-		obs:   l.obs,
+		min:   l.min,   // share the same atomic.Int32 pointer; do NOT copy atomic by value
+		clock: l.clock, // share the same clock reference
+		obs:   l.obs,   // observers slice is immutable
 	}
 }
 
@@ -153,18 +158,19 @@ func init() {
 	global.Store(New(nopAdapter{}, LevelInfo))
 }
 
-// L returns the global logger.
-func L() *Logger { return global.Load().(*Logger) }
-
-// UseAdapter sets and returns the global logger (Facade entrypoint).
-func UseAdapter(ad Adapter, min Level) *Logger {
-	l := New(ad, min)
+func SetGlobal(l *Logger) *Logger {
+	if l == nil {
+		panic("xlog: SetGlobal called with nil Logger")
+	}
 	global.Store(l)
 	return l
 }
 
+// L returns the global logger.
+func L() *Logger { return global.Load().(*Logger) }
+
 // nopAdapter is a safe no-op adapter.
 type nopAdapter struct{}
 
-func (nopAdapter) With(fs []Field) Adapter                                   { return nopAdapter{} }
-func (nopAdapter) Log(level Level, msg string, at time.Time, fields []Field) {}
+func (nopAdapter) With(_ []Field) Adapter                        { return nopAdapter{} }
+func (nopAdapter) Log(_ Level, _ string, _ time.Time, _ []Field) {}

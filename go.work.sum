@@ -1,9 +1,17 @@
 github.com/coreos/go-systemd/v22 v22.5.0 h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/godbus/dbus/v5 v5.0.4 h1:9349emZab16e7zQvpmsbtjc18ykshndd8y2PG3sgJbA=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
+github.com/stretchr/objx v0.5.0 h1:1zr/of2m5FGMsad5YfcqgdqdWrIhu+EBEJRhR1U7z/c=
+github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/trickstertwo/xclock v0.0.4 h1:310mVsBT6Z3JXTKAJqDkACVqqk66KLMTMT+rA/a2jfw=
 github.com/trickstertwo/xclock v0.0.4/go.mod h1:H6U+tXis+3EeClZ+rcBgPqNYnWRwcESp5lWGJqK+ZJ8=
 github.com/trickstertwo/xclock v0.0.5 h1:WF67VPa94CyocdRU/yg2pmvRnOmvmJyieos6ASiOLuU=
@@ -14,4 +22,6 @@ github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180b
 github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:p/69j+dKa42TelIOv6BhT3ATeza9yzXsmrAtkNDHA6A=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82 h1:wx5O3SfPDHVbkKb5l0YxF8h27CXkuuulu0kTrFHFtHQ=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:LK85cLuW4RjHzArJOQVs4lYKmo9DEcneIVw5ec68Lsk=
-github.com/trickstertwo/xlog v0.0.2/go.mod h1:C5famIiZR+ZEfy0QGf3fCoPyCW8LZRVD4dEELstaYcY=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=

@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 
 // Use builds a zap-backed xlog logger from Config,
 // wires it as the global xlog logger, and returns it.
+// Critically, it binds the logger to xclock.Default() so frozen/offset/jitter/calibrated clocks are respected in timestamps.
 func Use(cfg Config) *xlog.Logger {
 	w := cfg.Writer
 	if w == nil {
@@ -80,5 +82,16 @@ func Use(cfg Config) *xlog.Logger {
 	ad := NewWithTimestampKey(zl, &al, cfg.TimestampFieldName)
 	ad.SetMinLevel(cfg.MinLevel)
 
-	return xlog.UseAdapter(ad, cfg.MinLevel)
+	// Build an xlog.Logger bound to the current process clock (xclock.Default()).
+	logger, err := xlog.NewBuilder().
+		WithAdapter(ad).
+		WithMinLevel(cfg.MinLevel).
+		WithClock(xclock.Default()).
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	xlog.SetGlobal(logger)
+	return logger
 }
