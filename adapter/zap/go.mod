@@ -3,7 +3,7 @@ module github.com/trickstertwo/xlog/adapter/zap
 go 1.25
 
 require (
-	github.com/trickstertwo/xlog v0.0.1
+	github.com/trickstertwo/xlog v0.0.2
 	go.uber.org/zap v1.27.0
 )
 

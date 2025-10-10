@@ -10,9 +10,8 @@ github.com/trickstertwo/xclock v0.0.5 h1:WF67VPa94CyocdRU/yg2pmvRnOmvmJyieos6ASi
 github.com/trickstertwo/xclock v0.0.5/go.mod h1:H6U+tXis+3EeClZ+rcBgPqNYnWRwcESp5lWGJqK+ZJ8=
 github.com/trickstertwo/xclock v0.0.6 h1:G5+9BUO2jRZfV6IuOd5mEKWQUcseMe9783IdJp4a7uA=
 github.com/trickstertwo/xclock v0.0.6/go.mod h1:H6U+tXis+3EeClZ+rcBgPqNYnWRwcESp5lWGJqK+ZJ8=
-github.com/trickstertwo/xclock v0.0.7 h1:yBMTFT8bt1AoAYgHTjVvpHE/Vtk6aUS1909RWTgwmh0=
-github.com/trickstertwo/xclock v0.0.7/go.mod h1:H6U+tXis+3EeClZ+rcBgPqNYnWRwcESp5lWGJqK+ZJ8=
 github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180bff82 h1:Y/XX4sD02ncYwrw72yoJK1VguFq4ks0isBP2XVURCyg=
 github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:p/69j+dKa42TelIOv6BhT3ATeza9yzXsmrAtkNDHA6A=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82 h1:wx5O3SfPDHVbkKb5l0YxF8h27CXkuuulu0kTrFHFtHQ=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:LK85cLuW4RjHzArJOQVs4lYKmo9DEcneIVw5ec68Lsk=
+github.com/trickstertwo/xlog v0.0.2/go.mod h1:C5famIiZR+ZEfy0QGf3fCoPyCW8LZRVD4dEELstaYcY=

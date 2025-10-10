@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/rs/zerolog v1.34.0
-	github.com/trickstertwo/xlog v0.0.1
+	github.com/trickstertwo/xlog v0.0.2
 )
 
 require (
