@@ -3,16 +3,16 @@ package main
 import (
 	"time"
 
-	"github.com/trickstertwo/xclock"
+	"github.com/trickstertwo/xclock/adapter/frozen"
 	"github.com/trickstertwo/xlog"
 	xadapter "github.com/trickstertwo/xlog/adapter/xlog"
 )
 
 func main() {
-	// Deterministic time for demo output.
-	old := xclock.Default()
-	defer xclock.SetDefault(old)
-	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
+	// Pin deterministic time for demo output.
+	frozen.Use(frozen.Config{
+		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
 
 	// Single explicit call, no envs, no blank-imports. Clear and predictable.
 	// Choose between FormatText and FormatJSON.

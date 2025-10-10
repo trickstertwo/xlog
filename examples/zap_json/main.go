@@ -4,18 +4,18 @@ import (
 	"errors"
 	"time"
 
+	"github.com/trickstertwo/xclock/adapter/frozen"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/trickstertwo/xclock"
 	"github.com/trickstertwo/xlog"
 	"github.com/trickstertwo/xlog/adapter/zap"
 )
 
 func main() {
-	// Deterministic time for demo output.
-	old := xclock.Default()
-	defer xclock.SetDefault(old)
-	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
+	// Pin deterministic time for demo output.
+	frozen.Use(frozen.Config{
+		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
 
 	// Single explicit call, no envs, no blank-imports. Clear and predictable.
 	zap.Use(zap.Config{

@@ -4,31 +4,27 @@ import (
 	"errors"
 	"time"
 
-	"github.com/trickstertwo/xclock"
+	"github.com/trickstertwo/xclock/adapter/frozen"
 	"github.com/trickstertwo/xlog"
 	"github.com/trickstertwo/xlog/adapter/zerolog"
 )
 
 func main() {
-	// Deterministic time for demo output.
-	old := xclock.Default()
-	defer xclock.SetDefault(old)
-	xclock.SetDefault(xclock.NewFrozen(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)))
+	// Pin deterministic time for demo output.
+	frozen.Use(frozen.Config{
+		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
 
 	// Single explicit call, no envs, no blank-imports. Clear and predictable.
 	zerolog.Use(zerolog.Config{
-		MinLevel:          xlog.LevelDebug,  // xlog + zerolog both get this
-		Console:           false,            // set to true for pretty console
-		ConsoleTimeFormat: time.RFC3339Nano, // used when Console = true
-		Caller:            true,             // include caller if you want it
-		CallerSkip:        5,                // adjust to point at app callsite
-		// Writer:          os.Stdout,        // optional, defaults to Stdout
+		MinLevel:          xlog.LevelDebug,
+		Console:           false,
+		ConsoleTimeFormat: time.RFC3339Nano,
+		Caller:            true,
+		CallerSkip:        5,
+		// Writer:          os.Stdout,
 	})
 
-	run()
-}
-
-func run() {
 	// Basic Info with a few fields
 	xlog.Info().
 		Str("service", "payments").
@@ -36,6 +32,10 @@ func run() {
 		Dur("boot", 125*time.Millisecond).
 		Msg("listening")
 
+	run()
+}
+
+func run() {
 	// Child logger with bound fields
 	reqLog := xlog.L().With(
 		xlog.FStr("request_id", "req-123"),
