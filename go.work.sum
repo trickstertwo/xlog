@@ -22,6 +22,7 @@ github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180b
 github.com/trickstertwo/xclock/adapters/slogclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:p/69j+dKa42TelIOv6BhT3ATeza9yzXsmrAtkNDHA6A=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82 h1:wx5O3SfPDHVbkKb5l0YxF8h27CXkuuulu0kTrFHFtHQ=
 github.com/trickstertwo/xclock/adapters/zapclock v0.0.0-20251005024325-d2c5180bff82/go.mod h1:LK85cLuW4RjHzArJOQVs4lYKmo9DEcneIVw5ec68Lsk=
+github.com/trickstertwo/xlog v0.0.4/go.mod h1:C5famIiZR+ZEfy0QGf3fCoPyCW8LZRVD4dEELstaYcY=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
