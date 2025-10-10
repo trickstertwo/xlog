@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/trickstertwo/xlog"
+	root "github.com/trickstertwo/xlog"
 )
 
 // Config is an explicit, code-first configuration for the built-in xlog adapter.
@@ -19,20 +19,25 @@ type Config struct {
 	WriterFactory WriterFactory
 
 	// Core behavior (mirrors Options)
-	MinLevel       xlog.Level
+	MinLevel       root.Level
 	Format         Format
 	ErrorHandler   ErrorHandler
 	Async          bool
 	AsyncQueueSize int
+	AsyncPolicy    AsyncDropPolicy
 	DisableCaller  bool
 	TimeFormat     string
-	Metrics        MetricsCollector // optional observability
+	JSONTime       JSONTimeEncoding
+	JSONDuration   JSONDurationEncoding
+	BufferSize     int
+
+	Metrics MetricsCollector // optional observability
 }
 
 // Use builds an xlog.Logger backed by the built-in adapter with Config,
 // sets it as the global logger, and returns it.
 // No envs, no init-time magic.
-func Use(cfg Config) *xlog.Logger {
+func Use(cfg Config) *root.Logger {
 	// Build adapter options
 	opts := Options{
 		Format:         cfg.Format,
@@ -40,8 +45,12 @@ func Use(cfg Config) *xlog.Logger {
 		ErrorHandler:   cfg.ErrorHandler,
 		Async:          cfg.Async,
 		AsyncQueueSize: cfg.AsyncQueueSize,
+		AsyncPolicy:    cfg.AsyncPolicy,
 		DisableCaller:  cfg.DisableCaller,
 		TimeFormat:     cfg.TimeFormat,
+		JSONTime:       cfg.JSONTime,
+		JSONDuration:   cfg.JSONDuration,
+		BufferSize:     cfg.BufferSize,
 	}
 
 	var ad *Adapter
@@ -62,5 +71,5 @@ func Use(cfg Config) *xlog.Logger {
 
 	// Keep xlog's filter and adapter's filter aligned.
 	// UseAdapter builds and sets the global Logger.
-	return xlog.UseAdapter(ad, cfg.MinLevel)
+	return root.UseAdapter(ad, cfg.MinLevel)
 }

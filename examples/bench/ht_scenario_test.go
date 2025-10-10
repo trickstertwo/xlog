@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/trickstertwo/xlog"
-	xlogadapter "github.com/trickstertwo/xlog/adapter/xlog"
+	xlogadapter "github.com/trickstertwo/xlog/adapter/olog"
 	zapadapter "github.com/trickstertwo/xlog/adapter/zap"
 	zerologadapter "github.com/trickstertwo/xlog/adapter/zerolog"
 )

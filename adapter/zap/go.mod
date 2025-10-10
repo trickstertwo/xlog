@@ -8,6 +8,6 @@ require (
 )
 
 require (
-	github.com/trickstertwo/xclock v0.0.1 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
+	github.com/trickstertwo/xclock v0.0.7 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 )

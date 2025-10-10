@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/trickstertwo/xclock/adapter/frozen"
+
 	"github.com/trickstertwo/xlog"
 	"github.com/trickstertwo/xlog/adapter/zerolog"
 )
@@ -38,23 +39,23 @@ func main() {
 func run() {
 	// Child logger with bound fields
 	reqLog := xlog.L().With(
-		xlog.FStr("request_id", "req-123"),
-		xlog.FStr("region", "eu-west-1"),
+		xlog.Str("request_id", "req-123"),
+		xlog.Str("region", "eu-west-1"),
 	)
 	reqLog.Debug().Str("path", "/healthz").Int("code", 200).Msg("probe")
 
 	// Demonstrate all field kinds (bound once; emitted once)
 	allKinds := xlog.L().With(
-		xlog.FStr("k_string", "v"),
-		xlog.FInt("k_int64", -42),
-		xlog.FUint("k_uint64", 42),
-		xlog.FFloat("k_float64", 3.14159),
-		xlog.FBool("k_bool", true),
-		xlog.FDur("k_duration", 250*time.Millisecond),
-		xlog.FTime("k_time", time.Date(2025, 1, 1, 7, 0, 0, 0, time.UTC)),
-		xlog.FErr("k_error", errors.New("boom")),
-		xlog.FBytes("k_bytes", []byte{0xDE, 0xAD, 0xBE, 0xEF}),
-		xlog.FAny("k_any", map[string]any{"a": 1, "b": "two"}),
+		xlog.Str("k_string", "v"),
+		xlog.Int64("k_int64", -42),
+		xlog.Uint64("k_uint64", 42),
+		xlog.Float64("k_float64", 3.14159),
+		xlog.Bool("k_bool", true),
+		xlog.Dur("k_duration", 250*time.Millisecond),
+		xlog.Time("k_time", time.Date(2025, 1, 1, 7, 0, 0, 0, time.UTC)),
+		xlog.Err("k_error", errors.New("boom")),
+		xlog.Bytes("k_bytes", []byte{0xDE, 0xAD, 0xBE, 0xEF}),
+		xlog.Any("k_any", map[string]any{"a": 1, "b": "two"}),
 	)
 	allKinds.Warn().Msg("all-kinds")
 

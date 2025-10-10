@@ -5,6 +5,6 @@ use (
 	adapter/slog
 	adapter/zap
 	adapter/zerolog
-	adapter/xlog
+	adapter/olog
 	examples
 )

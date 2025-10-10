@@ -6,7 +6,7 @@ import (
 )
 
 // Event is a fluent builder (Builder pattern) for a single log entry.
-// API: Logger().Info().Str("from", ...).Dur("to", dur).Int("to", v).Msg("state changed")
+// API: xlog.Info().Str("from", ...).Dur("d", dur).Int("n", v).Msg("state changed")
 
 type Event struct {
 	l      *Logger

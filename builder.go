@@ -1,10 +1,13 @@
 package xlog
 
+import "github.com/trickstertwo/xclock"
+
 // Config for constructing a Logger (Factory data structure).
 type Config struct {
 	Adapter   Adapter
 	MinLevel  Level
 	Observers []Observer
+	Clock     xclock.Clock // optional; defaults to xclock.System()
 }
 
 // Builder separates construction from representation (Builder pattern).
@@ -26,6 +29,11 @@ func (b *Builder) WithMinLevel(l Level) *Builder {
 	return b
 }
 
+func (b *Builder) WithClock(c xclock.Clock) *Builder {
+	b.cfg.Clock = c
+	return b
+}
+
 func (b *Builder) AddObserver(o Observer) *Builder {
 	b.cfg.Observers = append(b.cfg.Observers, o)
 	return b
@@ -38,7 +46,6 @@ func (b *Builder) Build() (*Logger, error) {
 	}
 	// Propagate settings into the adapter when supported.
 	b.applyAdapterConfig(b.cfg.Adapter)
-
 	return newLogger(b.cfg), nil
 }
 

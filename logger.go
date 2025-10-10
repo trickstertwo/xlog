@@ -1,61 +1,76 @@
 package xlog
 
 import (
-	"sync"
+	"io"
 	"sync/atomic"
+	"time"
 
 	"github.com/trickstertwo/xclock"
 )
 
+// Logger is a small facade that delegates to an Adapter, with a min level filter.
+// Patterns: Facade, Strategy (Adapter), Observer, Singleton (global)
 type Logger struct {
-	adapter    Adapter
-	minLevel   Level
-	baseFields []Field
-
-	// Observers: lock-free reads via atomic.Value; synchronized updates via obsMu.
-	// Stored value is []Observer and MUST be treated as immutable by readers.
-	observers atomic.Value // holds []Observer
-	obsMu     sync.Mutex
+	ad     Adapter
+	min    atomic.Int32 // stores Level in int32
+	clock  xclock.Clock
+	obs    []Observer // immutable slice set at construction
+	closed atomic.Bool
 }
 
-// Factory: internal constructor.
+// New creates a new logger with the provided adapter and min level.
+// For advanced construction (clock, observers, factory), prefer Builder.
+func New(ad Adapter, min Level) *Logger {
+	if ad == nil {
+		ad = nopAdapter{}
+	}
+	l := &Logger{ad: ad, clock: xclock.System()}
+	l.min.Store(int32(min))
+	return l
+}
+
 func newLogger(cfg Config) *Logger {
+	clk := cfg.Clock
+	if clk == nil {
+		clk = xclock.System()
+	}
 	l := &Logger{
-		adapter:  cfg.Adapter,
-		minLevel: cfg.MinLevel,
+		ad:    cfg.Adapter,
+		clock: clk,
 	}
+	l.min.Store(int32(cfg.MinLevel))
 	if len(cfg.Observers) > 0 {
-		obs := make([]Observer, len(cfg.Observers))
-		copy(obs, cfg.Observers)
-		l.observers.Store(obs)
-	} else {
-		l.observers.Store(([]Observer)(nil))
+		l.obs = append([]Observer(nil), cfg.Observers...)
 	}
 	return l
 }
 
-// Facade: global access (Singleton + Facade).
-var global atomic.Pointer[Logger]
+func (l *Logger) MinLevel() Level { return Level(l.min.Load()) }
 
-// SetGlobal sets the global Logger (Singleton setter).
-func SetGlobal(l *Logger) { global.Store(l) }
-
-// L returns the global Logger; panic if unset to surface misconfig early.
-func L() *Logger {
-	l := global.Load()
-	if l == nil {
-		panic("xlog: global logger not set. Build one and call xlog.SetGlobal(...)")
+func (l *Logger) SetMinLevel(min Level) {
+	old := l.MinLevel()
+	if old == min {
+		return
 	}
-	return l
+	l.min.Store(int32(min))
+	// Optional propagation to adapter (if constructed via New, not Builder)
+	if ls, ok := l.ad.(adapterLevelSetter); ok {
+		ls.SetMinLevel(min)
+	}
+	l.notifyConfig(old, min)
 }
 
-// Enabled reports whether logs at 'level' would be emitted by this logger.
-// Use to avoid building fields in hot paths when disabled.
-func (l *Logger) Enabled(level Level) bool {
-	return level >= l.minLevel
+// With returns a derived logger with bound fields.
+func (l *Logger) With(fs ...Field) *Logger {
+	return &Logger{
+		ad:    l.ad.With(fs),
+		min:   l.min,
+		clock: l.clock,
+		obs:   l.obs,
+	}
 }
 
-// Level entry points returning fluent builders.
+// Event builder API (zerolog-style).
 
 func (l *Logger) Trace() *Event { return getEvent(l, LevelTrace) }
 func (l *Logger) Debug() *Event { return getEvent(l, LevelDebug) }
@@ -64,83 +79,92 @@ func (l *Logger) Warn() *Event  { return getEvent(l, LevelWarn) }
 func (l *Logger) Error() *Event { return getEvent(l, LevelError) }
 func (l *Logger) Fatal() *Event { return getEvent(l, LevelFatal) }
 
-// With returns a child logger with bound fields.
-func (l *Logger) With(fs ...Field) *Logger {
-	child := &Logger{
-		adapter:    l.adapter.With(fs),
-		minLevel:   l.minLevel,
-		baseFields: append(copyFields(nil, l.baseFields), fs...),
-	}
-	// Inherit a snapshot of observers (same semantics as before).
-	child.observers.Store(l.snapshotObservers())
-	return child
+// LogAt logs at the specified level (immediate form).
+func (l *Logger) LogAt(level Level, msg string, fs ...Field) {
+	l.emit(level, msg, fs)
 }
 
-func (l *Logger) snapshotObservers() []Observer {
-	v := l.observers.Load()
-	if v == nil {
-		return nil
-	}
-	cur := v.([]Observer)
-	if len(cur) == 0 {
-		return nil
-	}
-	out := make([]Observer, len(cur))
-	copy(out, cur)
-	return out
-}
-
-func (l *Logger) AddObserver(o Observer) {
-	l.obsMu.Lock()
-	defer l.obsMu.Unlock()
-	cur := l.snapshotObservers()
-	cur = append(cur, o)
-	l.observers.Store(cur)
-}
-
-func (l *Logger) emit(level Level, msg string, evFields []Field) {
-	if level < l.minLevel {
+// emit is the single emission path for both builder and immediate APIs.
+func (l *Logger) emit(level Level, msg string, fs []Field) {
+	if l.closed.Load() {
 		return
 	}
-	// Single authoritative timestamp from xclock
-	at := xclock.Now()
-
-	// Fast path: adapter handles bound fields internally; pass only event fields.
-	l.adapter.Log(level, msg, at, evFields)
-
-	// Observers see combined fields: base + event.
-	v := l.observers.Load()
-	if v == nil {
+	if level < l.MinLevel() {
 		return
 	}
-	obs := v.([]Observer)
-	if len(obs) == 0 {
+	// Snapshot time via platform abstraction.
+	at := l.clock.Now()
+
+	// Defensive copy to avoid adapter misuse and caller aliasing.
+	var fields []Field
+	if len(fs) > 0 {
+		fields = append(make([]Field, 0, len(fs)), fs...)
+	}
+
+	l.ad.Log(level, msg, at, fields)
+	l.notifyEvent(level, msg, at, fields)
+}
+
+// Close asks the adapter to release resources if supported.
+func (l *Logger) Close() {
+	if !l.closed.CompareAndSwap(false, true) {
 		return
 	}
-
-	merged := make([]Field, 0, len(l.baseFields)+len(evFields))
-	if len(l.baseFields) > 0 {
-		merged = append(merged, l.baseFields...)
-	}
-	if len(evFields) > 0 {
-		merged = append(merged, evFields...)
-	}
-
-	entry := Entry{
-		At:      at,
-		Level:   level,
-		Message: msg,
-		Fields:  merged,
-	}
-
-	for _, o := range obs {
-		o.OnLog(entry)
+	if c, ok := l.ad.(io.Closer); ok {
+		_ = c.Close()
 	}
 }
 
-func copyFields(dst, src []Field) []Field {
-	if len(src) == 0 {
-		return dst
+// Observer notifications (best-effort, never panic).
+func (l *Logger) notifyEvent(level Level, msg string, at time.Time, fields []Field) {
+	if len(l.obs) == 0 {
+		return
 	}
-	return append(dst, src...)
+	e := EventData{Level: level, Msg: msg, At: at}
+	if len(fields) > 0 {
+		e.Fields = append(make([]Field, 0, len(fields)), fields...)
+	}
+	for _, o := range l.obs {
+		func(o Observer, e EventData) {
+			defer func() { _ = recover() }()
+			o.OnEvent(e)
+		}(o, e)
+	}
 }
+
+func (l *Logger) notifyConfig(old, new Level) {
+	if len(l.obs) == 0 {
+		return
+	}
+	c := ConfigChange{OldMin: old, NewMin: new}
+	for _, o := range l.obs {
+		func(o Observer, c ConfigChange) {
+			defer func() { _ = recover() }()
+			o.OnConfig(c)
+		}(o, c)
+	}
+}
+
+// Global singleton (Singleton pattern)
+
+var global atomic.Value // *Logger
+
+func init() {
+	global.Store(New(nopAdapter{}, LevelInfo))
+}
+
+// L returns the global logger.
+func L() *Logger { return global.Load().(*Logger) }
+
+// UseAdapter sets and returns the global logger (Facade entrypoint).
+func UseAdapter(ad Adapter, min Level) *Logger {
+	l := New(ad, min)
+	global.Store(l)
+	return l
+}
+
+// nopAdapter is a safe no-op adapter.
+type nopAdapter struct{}
+
+func (nopAdapter) With(fs []Field) Adapter                                   { return nopAdapter{} }
+func (nopAdapter) Log(level Level, msg string, at time.Time, fields []Field) {}

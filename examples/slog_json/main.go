@@ -35,8 +35,8 @@ func main() {
 		Msg("listening")
 
 	reqLog := xlog.L().With(
-		xlog.FStr("request_id", "req-123"),
-		xlog.FStr("region", "eu-west-1"),
+		xlog.Str("request_id", "req-123"),
+		xlog.Str("region", "eu-west-1"),
 	)
 	reqLog.Debug().Str("path", "/healthz").Int("code", 200).Msg("probe")
 }
