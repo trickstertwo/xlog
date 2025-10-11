@@ -30,38 +30,31 @@ Patterns used:
 go get github.com/trickstertwo/xlog
 ```
 
-## Quick start (slog JSON + xclock)
+## Quick start (slog)
 
 ```go
 package main
 
 import (
-	"log/slog"
 	"time"
 
-	"github.com/trickstertwo/xclock/adapter/frozen"
 	"github.com/trickstertwo/xlog"
 	slogadapter "github.com/trickstertwo/xlog/adapter/slog"
 )
 
 func main() {
-	// Deterministic time for demos/tests (auto-restores on exit)
-	frozen.Use(frozen.Config{
-		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-
-	// Wire slog JSON handler at Info level; binds xlog to xclock.Default()
 	slogadapter.Use(slogadapter.Config{
 		MinLevel: xlog.LevelInfo,
-		Caller:   true, // optional: include source
 	})
 
-	// Fluent, zerolog-style builder
 	xlog.Info().
-		Str("service", "api").
+		Str("service", "payments").
 		Int("port", 8080).
+		Dur("boot", 125*time.Millisecond).
 		Msg("listening")
+
 }
+
 ```
 
 Notes:
@@ -84,10 +77,6 @@ import (
 )
 
 func main() {
-	frozen.Use(frozen.Config{
-		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-
 	zerologadapter.Use(zerologadapter.Config{
 		MinLevel:          xlog.LevelDebug,
 		Console:           false,
@@ -115,10 +104,6 @@ import (
 )
 
 func main() {
-	frozen.Use(frozen.Config{
-		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-
 	zapadapter.Use(zapadapter.Config{
 		MinLevel: xlog.LevelDebug,
 		Caller:   true, // zap.AddCaller
@@ -126,37 +111,6 @@ func main() {
 	})
 
 	xlog.Info().Msg("hello from zap")
-}
-```
-
-### Built-in xlog adapter (no third-party deps), Text or JSON
-
-```go
-package main
-
-import (
-	"time"
-
-	"github.com/trickstertwo/xclock/adapter/frozen"
-	"github.com/trickstertwo/xlog"
-	xlogadapter "github.com/trickstertwo/xlog/adapter/xlog"
-)
-
-func main() {
-	frozen.Use(frozen.Config{
-		Time: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-	})
-
-	// Text
-	// xlogadapter.Use builds and sets a global logger bound to xclock.Default()
-	logger := xlogadapter.Use(xlogadapter.Config{
-		Format:   xlogadapter.FormatText, // or FormatJSON
-		MinLevel: xlog.LevelInfo,
-		// Async: true, AsyncQueueSize: 32768, // optional high-throughput mode
-	})
-	_ = logger // already globally installed
-
-	xlog.Info().Str("k","v").Msg("event")
 }
 ```
 
@@ -207,7 +161,7 @@ defer restore()
 ## Why xlog? Benefits
 
 - Single facade, many backends
-    - Swap between slog, zerolog, zap, or the built-in ultra-fast adapter without touching call sites.
+    - Swap between slog, zerolog or zap without touching call sites.
 - Deterministic, fast time
     - Exactly one timestamp per event via xclock, consistent across adapters and observers; freeze or step time in tests without sleeps.
 - Low allocations on the hot path
