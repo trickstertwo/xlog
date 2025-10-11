@@ -1,6 +1,6 @@
 # xlog
 
-A high-performance, modular logging facade with a zerolog-style builder API, pluggable backends (adapters), and a deterministic, swappable time source powered by [xclock](https://github.com/trickstertwo/xclock).
+A high-performance, modular logging facade with a chainable builder API, pluggable backends (adapters), and a deterministic, swappable time source powered by [xclock](https://github.com/trickstertwo/xclock).
 
 xlog focuses on:
 - Dependability and simplicity in application code
