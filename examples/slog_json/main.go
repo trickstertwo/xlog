@@ -1,12 +1,11 @@
 package main
 
 import (
-	"log/slog"
 	"time"
 
 	"github.com/trickstertwo/xclock/adapter/frozen"
 	"github.com/trickstertwo/xlog"
-	xslog "github.com/trickstertwo/xlog/adapter/slog"
+	"github.com/trickstertwo/xlog/adapter/slog"
 )
 
 func main() {
@@ -17,14 +16,9 @@ func main() {
 
 	// Single explicit call, no envs, no blank-imports.
 	// Uses slog JSON handler at Debug level; AddSource shows caller.
-	xslog.Use(xslog.Config{
+	slog.Use(slog.Config{
 		MinLevel: xlog.LevelDebug,
-		Format:   xslog.FormatJSON, // or slogadapter.FormatText
-		HandlerOptions: &slog.HandlerOptions{
-			Level:     slog.LevelDebug, // backend level (will also be synced via SetMinLevel)
-			AddSource: true,            // optional: include caller
-		},
-		// TimestampFieldName: "ts", // default; override if you prefer a different key
+		Format:   slog.FormatJSON,
 	})
 
 	// Two log lines: INFO and DEBUG

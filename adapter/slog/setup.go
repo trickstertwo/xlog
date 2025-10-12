@@ -20,13 +20,12 @@ const (
 // Config is an explicit, code-first configuration for slog + xlog.
 // One call to Use wires a slog-backed xlog logger and sets it global.
 type Config struct {
-	Writer             io.Writer               // default: os.Stdout
-	MinLevel           xlog.Level              // xlog + slog will both use this
-	Format             Format                  // JSON (default)
-	HandlerOptions     *stdslog.HandlerOptions // optional; Level is managed by Use via LevelVar
-	TimestampFieldName string                  // default "ts" (aligns with xlog's authoritative timestamp)
-	Caller             bool                    // sets HandlerOptions.AddSource=true when requested
-	_                  struct{}                // future-proofing
+	Writer             io.Writer  // default: os.Stdout
+	MinLevel           xlog.Level // xlog + slog will both use this
+	Format             Format     // JSON (default)
+	TimestampFieldName string     // default "ts" (aligns with xlog's authoritative timestamp)
+	Caller             bool       // sets AddSource=true when requested
+	_                  struct{}   // future-proofing
 }
 
 // Use builds a slog-backed xlog logger from Config, sets it as global, and returns it.
@@ -39,10 +38,7 @@ func Use(cfg Config) *xlog.Logger {
 	if cfg.TimestampFieldName == "" {
 		cfg.TimestampFieldName = "ts"
 	}
-	opts := cfg.HandlerOptions
-	if opts == nil {
-		opts = &stdslog.HandlerOptions{}
-	}
+	opts := &stdslog.HandlerOptions{}
 	if cfg.Caller {
 		opts.AddSource = true
 	}
